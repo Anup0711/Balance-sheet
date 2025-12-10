@@ -1,0 +1,1636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Balance Sheet App (₹)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- SheetJS for Excel export -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"
+          crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+  <!-- jsPDF + AutoTable for PDF export -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"
+          crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"
+          crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+  <style>
+    :root {
+      --bg: #0f172a;
+      --bg-soft: #111827;
+      --accent: #22c55e;
+      --accent-soft: rgba(34, 197, 94, 0.1);
+      --accent-strong: #16a34a;
+      --border: #1f2937;
+      --border-soft: #374151;
+      --text: #e5e7eb;
+      --text-soft: #9ca3af;
+      --danger: #f97373;
+      --danger-soft: rgba(248, 113, 113, 0.12);
+      --shadow-soft: 0 14px 35px rgba(0, 0, 0, 0.4);
+      --radius-lg: 18px;
+      --radius-md: 10px;
+    }
+
+    * {
+      box-sizing: border-box;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top, #1e293b 0, #020617 55%);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: stretch;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .app-shell {
+      width: 100%;
+      max-width: 1200px;
+      background: rgba(15, 23, 42, 0.96);
+      border-radius: 24px;
+      box-shadow: var(--shadow-soft);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      backdrop-filter: blur(18px);
+    }
+
+    .app-header {
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: linear-gradient(90deg, #020617, #111827);
+      border-bottom: 1px solid var(--border-soft);
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .logo-pill {
+      width: 36px;
+      height: 36px;
+      border-radius: 12px;
+      background: radial-gradient(circle at 30% 20%, #22c55e, #059669);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 18px;
+      box-shadow: 0 10px 25px rgba(34, 197, 94, 0.5);
+      color: #022c22;
+    }
+
+    .title-text {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+
+    .title-text h1 {
+      margin: 0;
+      font-size: 18px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .title-text h1 span.currency {
+      font-size: 12px;
+      padding: 2px 6px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(148, 163, 184, 0.4);
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .title-text small {
+      color: var(--text-soft);
+      font-size: 12px;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .chip {
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      border: 1px solid rgba(148, 163, 184, 0.5);
+      color: var(--text-soft);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(15, 23, 42, 0.9);
+    }
+
+    .chip-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: var(--accent);
+      box-shadow: 0 0 8px rgba(34, 197, 94, 0.9);
+    }
+
+    .btn {
+      border-radius: 999px;
+      padding: 7px 14px;
+      font-size: 12px;
+      border: 1px solid var(--border-soft);
+      background: rgba(15, 23, 42, 0.9);
+      color: var(--text);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: 0.18s ease;
+      white-space: nowrap;
+    }
+
+    .btn.primary {
+      background: linear-gradient(120deg, var(--accent), var(--accent-strong));
+      border-color: transparent;
+      color: #022c22;
+      font-weight: 600;
+      box-shadow: 0 8px 20px rgba(34, 197, 94, 0.45);
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 7px 16px rgba(0, 0, 0, 0.5);
+      border-color: rgba(148, 163, 184, 0.9);
+    }
+
+    .btn.primary:hover {
+      filter: brightness(1.05);
+      box-shadow: 0 10px 24px rgba(34, 197, 94, 0.65);
+    }
+
+    .btn-icon {
+      font-size: 14px;
+    }
+
+    /* Ad wrappers */
+    .ad-banner {
+      padding: 8px 16px 0;
+      background: rgba(15, 23, 42, 0.98);
+      display: flex;
+      justify-content: center;
+    }
+    .ad-native {
+      padding: 0 16px 8px;
+      background: rgba(15, 23, 42, 0.98);
+      display: flex;
+      justify-content: center;
+    }
+    .ad-banner-inner,
+    .ad-native-inner {
+      border-radius: 10px;
+      padding: 6px 10px;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(55, 65, 81, 0.8);
+      display: inline-block;
+      max-width: 100%;
+    }
+
+    .ad-bottom {
+      padding: 8px 16px 12px;
+    }
+
+    /* SIDE BANNER (right, lower) */
+    .ad-side-right {
+      position: fixed;
+      right: 8px;
+      bottom: 90px;
+      z-index: 999;
+    }
+    .ad-side-right-inner {
+      border-radius: 10px;
+      padding: 6px 10px;
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid rgba(55, 65, 81, 0.9);
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6);
+      max-width: 100%;
+    }
+
+    /* On small screens: still visible, just adjust position + width */
+    @media (max-width: 768px) {
+      .ad-side-right {
+        right: 4px;
+        bottom: 80px;
+      }
+      .ad-side-right-inner {
+        max-width: 95vw;
+      }
+    }
+
+    .ribbon {
+      padding: 10px 16px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(90deg, rgba(15,23,42,0.9), rgba(15,23,42,0.6));
+    }
+
+    .ribbon-group {
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid var(--border-soft);
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      flex-wrap: wrap;
+    }
+
+    .ribbon-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-soft);
+      padding: 4px 9px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(31,41,55,0.9);
+    }
+
+    .ribbon-group .btn {
+      padding: 6px 10px;
+      font-size: 11px;
+    }
+
+    .ribbon-divider {
+      width: 1px;
+      background: var(--border-soft);
+      align-self: stretch;
+    }
+
+    .category-input {
+      border: none;
+      outline: none;
+      background: transparent;
+      border-bottom: 1px solid var(--border-soft);
+      color: var(--text);
+      font-size: 11px;
+      padding: 3px 4px;
+      min-width: 110px;
+    }
+
+    .main-grid {
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 10px;
+      padding: 10px 16px 14px;
+      height: 100%;
+      min-height: 0;
+    }
+
+    .formula-bar {
+      border-radius: var(--radius-md);
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid var(--border-soft);
+      display: grid;
+      grid-template-columns: auto 1fr;
+      align-items: center;
+      overflow: hidden;
+    }
+
+    .formula-label {
+      padding: 6px 10px;
+      border-right: 1px solid var(--border-soft);
+      font-size: 11px;
+      color: var(--text-soft);
+      background: rgba(15, 23, 42, 0.96);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .formula-input {
+      padding: 4px 10px;
+      font-size: 12px;
+      color: var(--text-soft);
+      min-height: 32px;
+      display: flex;
+      align-items: center;
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+
+    .sheet-wrapper {
+      border-radius: var(--radius-lg);
+      background: radial-gradient(circle at top left, rgba(34, 197, 94, 0.06), transparent 55%),
+                  radial-gradient(circle at bottom right, rgba(56, 189, 248, 0.08), transparent 55%),
+                  rgba(15, 23, 42, 0.96);
+      border: 1px solid var(--border-soft);
+      box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.8);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .sheet-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(15, 23, 42, 0.9);
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .sheet-header-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .sheet-name {
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      background: rgba(15, 23, 42, 1);
+      border: 1px solid var(--accent-soft);
+      color: var(--accent);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .sheet-name-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: var(--accent);
+    }
+
+    .sheet-header-right {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .pill {
+      font-size: 11px;
+      padding: 3px 9px;
+      border-radius: 999px;
+      border: 1px solid var(--border-soft);
+      color: var(--text-soft);
+      background: rgba(15, 23, 42, 0.9);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .pill strong {
+      color: var(--accent);
+    }
+
+    .sheet-container {
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+      padding: 8px;
+    }
+
+    table.sheet {
+      border-collapse: collapse;
+      width: 100%;
+      min-width: 650px;
+      background: rgba(15, 23, 42, 0.96);
+      font-size: 12px;
+    }
+
+    table.sheet thead {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: linear-gradient(0deg, #020617, #020617);
+    }
+
+    table.sheet th,
+    table.sheet td {
+      border: 1px solid var(--border-soft);
+      padding: 6px 8px;
+      text-align: left;
+    }
+
+    table.sheet th {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-soft);
+      background: linear-gradient(0deg, #020617, #020617);
+      position: relative;
+    }
+
+    table.sheet th:first-child,
+    table.sheet td:first-child {
+      background: rgba(15, 23, 42, 0.96);
+      text-align: center;
+      width: 40px;
+      min-width: 40px;
+      color: var(--text-soft);
+      font-size: 11px;
+    }
+
+    table.sheet tr:nth-child(even) td:not(:first-child) {
+      background: rgba(15, 23, 42, 0.98);
+    }
+
+    table.sheet tr:nth-child(odd) td:not(:first-child) {
+      background: rgba(15, 23, 42, 0.93);
+    }
+
+    table.sheet tr:hover td {
+      background: rgba(15, 23, 42, 0.9);
+    }
+
+    .cell-input,
+    .cell-select {
+      width: 100%;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text);
+      font-size: 12px;
+      padding: 2px 0;
+    }
+
+    .cell-input::placeholder {
+      color: rgba(148, 163, 184, 0.6);
+    }
+
+    .cell-select {
+      cursor: pointer;
+    }
+
+    .cell-input.amount {
+      text-align: right;
+    }
+
+    .rupee-prefix {
+      color: var(--text-soft);
+      margin-right: 4px;
+      font-size: 11px;
+    }
+
+    .amount-cell {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 2px;
+    }
+
+    .action-cell {
+      text-align: center;
+    }
+
+    .row-btn {
+      border-radius: 999px;
+      border: 1px solid var(--border-soft);
+      background: rgba(15, 23, 42, 0.9);
+      color: var(--text-soft);
+      font-size: 11px;
+      padding: 2px 7px;
+      cursor: pointer;
+      transition: 0.16s ease;
+    }
+
+    .row-btn:hover {
+      background: rgba(127, 29, 29, 0.9);
+      color: #fecaca;
+      border-color: rgba(248, 113, 113, 0.8);
+    }
+
+    .summary-bar {
+      margin-top: 8px;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+      font-size: 11px;
+    }
+
+    .summary-card {
+      border-radius: var(--radius-md);
+      padding: 7px 9px;
+      background: rgba(15, 23, 42, 0.96);
+      border: 1px solid var(--border-soft);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .summary-label {
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-soft);
+    }
+
+    .summary-value {
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .summary-value span.rupee {
+      font-size: 11px;
+      color: var(--text-soft);
+      margin-right: 2px;
+    }
+
+    .summary-badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .summary-badge.ok {
+      background: var(--accent-soft);
+      color: var(--accent);
+      border: 1px solid var(--accent);
+    }
+
+    .summary-badge.bad {
+      background: var(--danger-soft);
+      color: var(--danger);
+      border: 1px solid var(--danger);
+    }
+
+    .summary-hint {
+      font-size: 10px;
+      color: var(--text-soft);
+    }
+
+    .summary-badge-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: currentColor;
+    }
+
+    .app-footer {
+      padding: 6px 14px 10px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--text-soft);
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .footer-left,
+    .footer-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--accent);
+      box-shadow: 0 0 10px rgba(34, 197, 94, 0.8);
+    }
+
+    .kbd {
+      padding: 1px 5px;
+      border-radius: 4px;
+      border: 1px solid var(--border-soft);
+      background: rgba(15,23,42,0.9);
+      font-size: 10px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+
+    @media (max-width: 800px) {
+      .ribbon {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .ribbon-group {
+        width: 100%;
+        justify-content: flex-start;
+      }
+      .summary-bar {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 520px) {
+      .app-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .header-actions {
+        align-self: stretch;
+        justify-content: space-between;
+      }
+      .summary-bar {
+        grid-template-columns: 1fr;
+      }
+      table.sheet {
+        min-width: 550px;
+      }
+    }
+
+    /* ===== SPLASH SCREEN STYLES ===== */
+
+    #splash-screen {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at top, #1f2937 0, #020617 60%);
+      z-index: 9999;
+      overflow: hidden;
+    }
+
+    .splash-logo {
+      width: 84px;
+      height: 84px;
+      border-radius: 26px;
+      background: radial-gradient(circle at 30% 20%, #22c55e, #15803d);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 40px;
+      font-weight: 800;
+      color: #022c22;
+      box-shadow: 0 18px 45px rgba(34, 197, 94, 0.6);
+      transform: translateY(10px);
+      animation: floatLogo 2.2s ease-in-out infinite;
+    }
+
+    @keyframes floatLogo {
+      0%, 100% { transform: translateY(8px); }
+      50% { transform: translateY(-4px); }
+    }
+
+    .splash-title {
+      margin-top: 18px;
+      font-size: 22px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .splash-subtitle {
+      margin-top: 6px;
+      font-size: 13px;
+      color: var(--text-soft);
+    }
+
+    .splash-loader {
+      margin-top: 28px;
+      width: 180px;
+      height: 6px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.9);
+      overflow: hidden;
+      position: relative;
+      box-shadow: 0 0 0 1px rgba(15,23,42,0.9);
+    }
+
+    .splash-loader-bar {
+      position: absolute;
+      inset: 0;
+      width: 40%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #22c55e, #a3e635);
+      animation: loadingSlide 1.4s ease-in-out infinite;
+    }
+
+    @keyframes loadingSlide {
+      0% { transform: translateX(-100%); }
+      50% { transform: translateX(20%); }
+      100% { transform: translateX(140%); }
+    }
+
+    .splash-footnote {
+      margin-top: 22px;
+      font-size: 11px;
+      color: var(--text-soft);
+      opacity: 0.8;
+    }
+
+    .splash-skip-btn {
+      margin-top: 18px;
+      font-size: 11px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.6);
+      background: rgba(15, 23, 42, 0.9);
+      color: var(--text-soft);
+      cursor: pointer;
+      outline: none;
+    }
+
+    .splash-skip-btn:active {
+      transform: scale(0.97);
+    }
+
+    .splash-hide {
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.6s ease;
+    }
+
+    #app-root.hidden {
+      visibility: hidden;
+      opacity: 0;
+    }
+
+    #app-root.show {
+      visibility: visible;
+      opacity: 1;
+      transition: opacity 0.4s ease;
+    }
+  </style>
+</head>
+<body>
+  <!-- SPLASH SCREEN -->
+  <div id="splash-screen">
+    <div class="splash-logo">₹</div>
+    <div class="splash-title">Balance Sheet</div>
+    <div class="splash-subtitle">Loading your Excel-style ledger…</div>
+
+    <div class="splash-loader">
+      <div class="splash-loader-bar"></div>
+    </div>
+
+    <div class="splash-footnote">Assets = Liabilities + Equity</div>
+
+    <button class="splash-skip-btn" id="skipSplashBtn">Skip</button>
+  </div>
+
+  <!-- APP CONTENT WRAPPED IN app-root -->
+  <div id="app-root" class="hidden">
+    <div class="app-shell">
+      <header class="app-header">
+        <div class="title-wrap">
+          <div class="logo-pill">₹</div>
+          <div class="title-text">
+            <h1>
+              Balance Sheet
+              <span class="currency">INR</span>
+            </h1>
+            <small>Excel-style sheet to track Assets, Liabilities &amp; Equity</small>
+          </div>
+        </div>
+        <div class="header-actions">
+          <div class="chip">
+            <span class="chip-dot"></span>
+            Auto totals &amp; balance check (saved locally)
+          </div>
+          <button class="btn" type="button" id="resetSheetBtn">
+            <span class="btn-icon">🧹</span> Reset sheet
+          </button>
+          <button class="btn primary" type="button" id="addRowBtn">
+            <span class="btn-icon">＋</span> Add row
+          </button>
+        </div>
+      </header>
+
+      <!-- Banner Ad (below header) -->
+      <div class="ad-banner">
+        <div class="ad-banner-inner">
+          <script type="text/javascript">
+            atOptions = {
+              'key' : '577cad121bb9d90257890a1b398f4eb7',
+              'format' : 'iframe',
+              'height' : 60,
+              'width' : 468,
+              'params' : {}
+            };
+          </script>
+          <script
+            type="text/javascript"
+            src="//www.highperformanceformat.com/577cad121bb9d90257890a1b398f4eb7/invoke.js">
+          </script>
+        </div>
+      </div>
+      <!-- End Banner Ad -->
+
+      <div class="ribbon">
+        <div class="ribbon-group">
+          <div class="ribbon-label">Rows</div>
+          <button class="btn" type="button" id="addRowBtn2">＋ Row</button>
+          <button class="btn" type="button" id="recalcBtn">⟳ Recalculate</button>
+        </div>
+
+        <div class="ribbon-divider"></div>
+
+        <div class="ribbon-group">
+          <div class="ribbon-label">Export</div>
+          <button class="btn" type="button" id="downloadExcelBtn">📊 Excel</button>
+          <button class="btn" type="button" id="downloadCsvBtn">📄 CSV</button>
+          <button class="btn" type="button" id="downloadPdfBtn">📑 PDF</button>
+          <button class="btn" type="button" id="downloadHtmlBtn">🌐 HTML</button>
+          <button class="btn" type="button" id="downloadJsonBtn">🧩 JSON</button>
+        </div>
+
+        <div class="ribbon-divider"></div>
+
+        <!-- Categories manager -->
+        <div class="ribbon-group">
+          <div class="ribbon-label">Categories</div>
+          <input
+            type="text"
+            id="newCategoryInput"
+            class="category-input"
+            placeholder="e.g. Income, Expense"
+          />
+          <button class="btn" type="button" id="addCategoryBtn">＋ Add</button>
+        </div>
+      </div>
+
+      <div class="main-grid">
+        <div class="formula-bar">
+          <div class="formula-label">Active Cell</div>
+          <div class="formula-input" id="formulaDisplay">
+            Click any cell to see / edit details
+          </div>
+        </div>
+
+        <div class="sheet-wrapper">
+          <div class="sheet-header">
+            <div class="sheet-header-left">
+              <div class="sheet-name">
+                <div class="sheet-name-dot"></div>
+                Sheet1 - Balance Sheet
+              </div>
+            </div>
+            <div class="sheet-header-right">
+              <div class="pill">
+                Mode: <strong>Assets / Liabilities / Equity</strong>
+              </div>
+            </div>
+          </div>
+
+          <div class="sheet-container">
+            <table class="sheet" id="balanceSheet">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Item / Account</th>
+                  <th>Category</th>
+                  <th>Amount (₹)</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="sheetBody">
+                <!-- Rows injected by JS -->
+              </tbody>
+            </table>
+
+            <div class="summary-bar">
+              <div class="summary-card">
+                <div class="summary-label">Total Assets</div>
+                <div class="summary-value" id="totalAssets">
+                  <span class="rupee">₹</span>0.00
+                </div>
+                <div class="summary-hint">Should equal Liabilities + Equity</div>
+              </div>
+
+              <div class="summary-card">
+                <div class="summary-label">Total Liabilities</div>
+                <div class="summary-value" id="totalLiabilities">
+                  <span class="rupee">₹</span>0.00
+                </div>
+                <div class="summary-hint">Loans, creditors, outstanding amounts</div>
+              </div>
+
+              <div class="summary-card">
+                <div class="summary-label">Total Equity</div>
+                <div class="summary-value" id="totalEquity">
+                  <span class="rupee">₹</span>0.00
+                </div>
+                <div class="summary-hint">Capital, reserves, retained earnings</div>
+              </div>
+
+              <div class="summary-card">
+                <div class="summary-label">Balance Status</div>
+                <div id="balanceStatus" class="summary-badge bad">
+                  <span class="summary-badge-dot"></span>
+                  Not balanced
+                </div>
+                <div class="summary-hint" id="differenceHint">
+                  Difference: <span class="rupee">₹</span>0.00
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Native Ad (above footer) -->
+        <div class="ad-native">
+          <div class="ad-native-inner">
+            <script
+              async="async"
+              data-cfasync="false"
+              src="//pl28227854.effectivegatecpm.com/7187be93d05614caecdcb7dffd5322f0/invoke.js">
+            </script>
+            <div id="container-7187be93d05614caecdcb7dffd5322f0"></div>
+          </div>
+        </div>
+        <!-- End Native Ad -->
+
+        <footer class="app-footer">
+          <div class="footer-left">
+            <span class="status-dot"></span>
+            <span id="footerStatus">Ready</span>
+          </div>
+          <div class="footer-right">
+            <span>Data is stored only in your browser (local).</span>
+            <span class="kbd">Assets = Liabilities + Equity</span>
+          </div>
+        </footer>
+      </div>
+
+      <!-- Bottom banner ad -->
+      <div class="ad-banner ad-bottom">
+        <div class="ad-banner-inner">
+          <script type="text/javascript">
+            atOptions = {
+              'key' : '3733a949fa035858dd8da7425657c5c0',
+              'format' : 'iframe',
+              'height' : 300,
+              'width' : 160,
+              'params' : {}
+            };
+          </script>
+          <script
+            type="text/javascript"
+            src="//www.highperformanceformat.com/3733a949fa035858dd8da7425657c5c0/invoke.js">
+          </script>
+        </div>
+      </div>
+      <!-- End bottom banner ad -->
+    </div>
+  </div>
+
+  <!-- SIDE BANNER AD (right, lower) -->
+  <div class="ad-side-right">
+    <div class="ad-side-right-inner">
+      <script type="text/javascript">
+        atOptions = {
+          'key' : 'ed7edaab18777980ed57467a930ae572',
+          'format' : 'iframe',
+          'height' : 50,
+          'width' : 320,
+          'params' : {}
+        };
+      </script>
+      <script
+        type="text/javascript"
+        src="//www.highperformanceformat.com/ed7edaab18777980ed57467a930ae572/invoke.js">
+      </script>
+    </div>
+  </div>
+  <!-- END SIDE BANNER AD -->
+
+  <script>
+    /* ===== SPLASH LOGIC ===== */
+    var SPLASH_MIN_TIME = 1800; // 1.8 seconds minimum
+    var splashShownAt = Date.now();
+
+    function hideSplash() {
+      var splash = document.getElementById("splash-screen");
+      var appRoot = document.getElementById("app-root");
+      if (!splash || !appRoot) return;
+
+      splash.classList.add("splash-hide");
+      appRoot.classList.remove("hidden");
+      appRoot.classList.add("show");
+
+      setTimeout(function () {
+        if (splash && splash.parentNode) {
+          splash.parentNode.removeChild(splash);
+        }
+      }, 700);
+    }
+
+    window.addEventListener("load", function () {
+      var elapsed = Date.now() - splashShownAt;
+      var remaining = Math.max(0, SPLASH_MIN_TIME - elapsed);
+      setTimeout(hideSplash, remaining);
+    });
+
+    var skipBtn = document.getElementById("skipSplashBtn");
+    if (skipBtn) {
+      skipBtn.addEventListener("click", hideSplash);
+    }
+
+    /* ===== APP LOGIC ===== */
+    var STORAGE_KEY = "balanceSheetDataV1";
+    var CATEGORY_STORAGE_KEY = "balanceSheetCategoriesV1";
+    var categories = [];
+
+    function nodeListForEach(list, cb) {
+      Array.prototype.forEach.call(list, cb);
+    }
+
+    function formatAmount(value) {
+      var num = Number(value) || 0;
+      return num.toFixed(2);
+    }
+
+    function loadCategoriesFromStorage() {
+      try {
+        var raw = localStorage.getItem(CATEGORY_STORAGE_KEY);
+        if (raw) {
+          var arr = JSON.parse(raw);
+          if (Array.isArray(arr) && arr.length) {
+            categories = arr;
+            return;
+          }
+        }
+      } catch (e) {}
+      // default
+      categories = ["Asset", "Liability", "Equity"];
+    }
+
+    function saveCategoriesToStorage() {
+      try {
+        localStorage.setItem(CATEGORY_STORAGE_KEY, JSON.stringify(categories));
+      } catch (e) {}
+    }
+
+    function refreshCategorySelectOptions() {
+      var selects = document.querySelectorAll('select[name="category"]');
+      nodeListForEach(selects, function (sel) {
+        var current = sel.value;
+        sel.innerHTML = "";
+        for (var i = 0; i < categories.length; i++) {
+          var opt = document.createElement("option");
+          opt.value = categories[i];
+          opt.textContent = categories[i];
+          sel.appendChild(opt);
+        }
+        if (categories.indexOf(current) !== -1) {
+          sel.value = current;
+        }
+      });
+    }
+
+    function createRow(itemValue, categoryValue, amountValue) {
+      if (itemValue === undefined) itemValue = "";
+      if (categoryValue === undefined) categoryValue = "Asset";
+      if (amountValue === undefined) amountValue = "";
+
+      var tbody = document.getElementById("sheetBody");
+      var row = document.createElement("tr");
+
+      var indexCell = document.createElement("td");
+      indexCell.className = "index-cell";
+      row.appendChild(indexCell);
+
+      var itemCell = document.createElement("td");
+      var itemInput = document.createElement("input");
+      itemInput.type = "text";
+      itemInput.className = "cell-input";
+      itemInput.name = "item";
+      itemInput.placeholder = "e.g. Cash, Bank, Furniture";
+      itemInput.value = itemValue;
+      itemCell.appendChild(itemInput);
+      row.appendChild(itemCell);
+
+      var categoryCell = document.createElement("td");
+      var categorySelect = document.createElement("select");
+      categorySelect.className = "cell-select";
+      categorySelect.name = "category";
+      for (var i = 0; i < categories.length; i++) {
+        var opt = document.createElement("option");
+        opt.value = categories[i];
+        opt.textContent = categories[i];
+        categorySelect.appendChild(opt);
+      }
+      if (categories.indexOf(categoryValue) !== -1) {
+        categorySelect.value = categoryValue;
+      }
+      categoryCell.appendChild(categorySelect);
+      row.appendChild(categoryCell);
+
+      var amountCell = document.createElement("td");
+      amountCell.className = "amount-cell";
+      var rupeeSpan = document.createElement("span");
+      rupeeSpan.className = "rupee-prefix";
+      rupeeSpan.textContent = "₹";
+      var amountInput = document.createElement("input");
+      amountInput.type = "number";
+      amountInput.step = "0.01";
+      amountInput.min = "0";
+      amountInput.className = "cell-input amount";
+      amountInput.name = "amount";
+      amountInput.placeholder = "0.00";
+      amountInput.value = amountValue;
+      amountCell.appendChild(rupeeSpan);
+      amountCell.appendChild(amountInput);
+      row.appendChild(amountCell);
+
+      var actionCell = document.createElement("td");
+      actionCell.className = "action-cell";
+      var deleteBtn = document.createElement("button");
+      deleteBtn.type = "button";
+      deleteBtn.className = "row-btn";
+      deleteBtn.textContent = "✕";
+      deleteBtn.title = "Delete row";
+      actionCell.appendChild(deleteBtn);
+      row.appendChild(actionCell);
+
+      tbody.appendChild(row);
+      updateRowNumbers();
+
+      function bindInput(el) {
+        el.addEventListener("focus", function () {
+          updateFormulaDisplay(row, el);
+        });
+        el.addEventListener("input", function () {
+          updateFormulaDisplay(row, el);
+          calculateTotals();
+        });
+      }
+      bindInput(itemInput);
+      bindInput(categorySelect);
+      bindInput(amountInput);
+
+      deleteBtn.addEventListener("click", function () {
+        if (row.parentNode) {
+          row.parentNode.removeChild(row);
+        }
+        updateRowNumbers();
+        calculateTotals();
+      });
+
+      itemInput.addEventListener("focus", function () {
+        updateFooterStatus("Editing item…");
+      });
+      amountInput.addEventListener("focus", function () {
+        updateFooterStatus("Editing amount…");
+      });
+
+      return row;
+    }
+
+    function updateRowNumbers() {
+      var rows = document.querySelectorAll("#sheetBody tr");
+      nodeListForEach(rows, function (row, index) {
+        var indexCell = row.querySelector(".index-cell");
+        if (indexCell) indexCell.textContent = index + 1;
+      });
+    }
+
+    function updateFormulaDisplay(row, element) {
+      var formulaDisplay = document.getElementById("formulaDisplay");
+      var rowIndex = row.rowIndex; // includes header row
+      var cell = element.parentElement;
+      while (cell && cell.tagName !== "TD") {
+        cell = cell.parentElement;
+      }
+      var colIndex = cell ? cell.cellIndex : 0;
+      var colLetters = ["A", "B", "C", "D", "E", "F", "G"];
+      var colLetter = colLetters[colIndex] || "?";
+      var cellLabel = colLetter + String(rowIndex);
+
+      var description = "";
+      if (element.name === "item") description = "Item / Account";
+      else if (element.name === "category") description = "Category";
+      else if (element.name === "amount") description = "Amount (₹)";
+
+      formulaDisplay.textContent =
+        "[" + cellLabel + "] " + description + ": " + element.value;
+    }
+
+    function updateFooterStatus(message) {
+      var footerStatus = document.getElementById("footerStatus");
+      footerStatus.textContent = message;
+    }
+
+    function getTableData() {
+      var rows = document.querySelectorAll("#sheetBody tr");
+      var data = [];
+      nodeListForEach(rows, function (row, index) {
+        var itemInput = row.querySelector('input[name="item"]');
+        var catSelect = row.querySelector('select[name="category"]');
+        var amtInput = row.querySelector('input[name="amount"]');
+
+        var item = itemInput ? itemInput.value : "";
+        var category = catSelect ? catSelect.value : "";
+        var amount = amtInput ? parseFloat(amtInput.value) || 0 : 0;
+
+        data.push({
+          "#": index + 1,
+          "Item / Account": item,
+          "Category": category,
+          "Amount (₹)": Number(amount.toFixed(2))
+        });
+      });
+      return data;
+    }
+
+    // classify category string into asset / liability / equity
+    function classifyCategory(cat) {
+      var c = (cat || "").toLowerCase();
+
+      if (!c) return "asset"; // default
+
+      if (c === "asset" || c === "assets") return "asset";
+      if (c === "liability" || c === "liabilities") return "liability";
+      if (c === "equity") return "equity";
+
+      if (c.indexOf("asset") !== -1) return "asset";
+      if (
+        c.indexOf("liab") !== -1 ||
+        c.indexOf("loan") !== -1 ||
+        c.indexOf("creditor") !== -1 ||
+        c.indexOf("payable") !== -1
+      ) {
+        return "liability";
+      }
+      if (
+        c.indexOf("equity") !== -1 ||
+        c.indexOf("capital") !== -1 ||
+        c.indexOf("reserve") !== -1
+      ) {
+        return "equity";
+      }
+
+      // anything else counted as asset by default
+      return "asset";
+    }
+
+    function computeTotalsFromData(data) {
+      var acc = { assets: 0, liabilities: 0, equity: 0 };
+      for (var i = 0; i < data.length; i++) {
+        var row = data[i];
+        var amt = Number(row["Amount (₹)"]) || 0;
+        var type = classifyCategory(row["Category"]);
+
+        if (type === "asset") acc.assets += amt;
+        else if (type === "liability") acc.liabilities += amt;
+        else if (type === "equity") acc.equity += amt;
+      }
+      return acc;
+    }
+
+    function saveToStorage() {
+      try {
+        var data = getTableData();
+        var json = JSON.stringify(data);
+        localStorage.setItem(STORAGE_KEY, json);
+      } catch (e) {
+        // ignore if blocked
+      }
+    }
+
+    function loadFromStorage() {
+      try {
+        var raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return false;
+        var data = JSON.parse(raw);
+        if (!data || !data.length) return false;
+
+        var tbody = document.getElementById("sheetBody");
+        tbody.innerHTML = "";
+        for (var i = 0; i < data.length; i++) {
+          var row = data[i];
+          createRow(
+            row["Item / Account"] || "",
+            row["Category"] || "Asset",
+            row["Amount (₹)"] != null ? String(row["Amount (₹)"]) : ""
+          );
+        }
+
+        // Merge categories from data into categories list
+        var seen = {};
+        for (var j = 0; j < data.length; j++) {
+          var c = data[j].Category || data[j]["Category"];
+          if (c && !seen[c]) {
+            seen[c] = true;
+            if (categories.indexOf(c) === -1) {
+              categories.push(c);
+            }
+          }
+        }
+        saveCategoriesToStorage();
+        refreshCategorySelectOptions();
+
+        calculateTotals();
+        return true;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    function calculateTotals() {
+      var data = getTableData();
+      var totals = computeTotalsFromData(data);
+
+      document.getElementById("totalAssets").innerHTML =
+        '<span class="rupee">₹</span>' + formatAmount(totals.assets);
+      document.getElementById("totalLiabilities").innerHTML =
+        '<span class="rupee">₹</span>' + formatAmount(totals.liabilities);
+      document.getElementById("totalEquity").innerHTML =
+        '<span class="rupee">₹</span>' + formatAmount(totals.equity);
+
+      var leftSide = totals.assets;
+      var rightSide = totals.liabilities + totals.equity;
+      var difference = leftSide - rightSide;
+
+      var balanceStatus = document.getElementById("balanceStatus");
+      var differenceHint = document.getElementById("differenceHint");
+      var tolerance = 0.01;
+
+      if (Math.abs(difference) <= tolerance && (leftSide !== 0 || rightSide !== 0)) {
+        balanceStatus.className = "summary-badge ok";
+        balanceStatus.innerHTML =
+          '<span class="summary-badge-dot"></span> Balanced';
+      } else {
+        balanceStatus.className = "summary-badge bad";
+        balanceStatus.innerHTML =
+          '<span class="summary-badge-dot"></span> Not balanced';
+      }
+
+      differenceHint.innerHTML =
+        'Difference: <span class="rupee">₹</span>' + formatAmount(difference);
+
+      updateFooterStatus("Totals updated.");
+      saveToStorage();
+    }
+
+    function downloadExcel() {
+      if (typeof XLSX === "undefined") {
+        alert("Excel export library not loaded. Check your internet connection.");
+        return;
+      }
+      var data = getTableData();
+      if (!data.length) {
+        alert("No data to export.");
+        return;
+      }
+      var ws = XLSX.utils.json_to_sheet(data);
+      var wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "BalanceSheet");
+      XLSX.writeFile(wb, "balance-sheet.xlsx");
+      updateFooterStatus("Exported as Excel (.xlsx).");
+    }
+
+    function downloadCsv() {
+      var data = getTableData();
+      if (!data.length) {
+        alert("No data to export.");
+        return;
+      }
+      var headers = Object.keys(data[0]);
+      var csvRows = [];
+      csvRows.push(headers.join(","));
+      for (var i = 0; i < data.length; i++) {
+        var row = data[i];
+        var values = [];
+        for (var j = 0; j < headers.length; j++) {
+          var h = headers[j];
+          var val = row[h] == null ? "" : row[h];
+          var str = String(val);
+          if (/[,"]/.test(str)) {
+            str = '"' + str.replace(/"/g, '""') + '"';
+          }
+          values.push(str);
+        }
+        csvRows.push(values.join(","));
+      }
+      var csvContent = csvRows.join("\n");
+      var blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      var url = URL.createObjectURL(blob);
+      var link = document.createElement("a");
+      link.href = url;
+      link.download = "balance-sheet.csv";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      updateFooterStatus("Exported as CSV.");
+    }
+
+    function downloadPdf() {
+      if (!window.jspdf || typeof window.jspdf.jsPDF === "undefined") {
+        alert("PDF export library not loaded. Check your internet connection.");
+        return;
+      }
+      var data = getTableData();
+      if (!data.length) {
+        alert("No data to export.");
+        return;
+      }
+      var totals = computeTotalsFromData(data);
+
+      var jsPDF = window.jspdf.jsPDF;
+      var doc = new jsPDF();
+
+      doc.setFontSize(14);
+      doc.text("Balance Sheet (₹)", 14, 16);
+      doc.setFontSize(10);
+      doc.text("Auto-generated from Balance Sheet Web App", 14, 22);
+
+      var head = [["#", "Item / Account", "Category", "Amount (₹)"]];
+      var body = [];
+      for (var i = 0; i < data.length; i++) {
+        var row = data[i];
+        body.push([
+          row["#"],
+          row["Item / Account"],
+          row["Category"],
+          row["Amount (₹)"].toFixed(2)
+        ]);
+      }
+
+      doc.autoTable({
+        head: head,
+        body: body,
+        startY: 28,
+        theme: "grid",
+        styles: { fontSize: 9 },
+        headStyles: { fillColor: [15, 23, 42], textColor: [226, 232, 240] }
+      });
+
+      var finalY = (doc.lastAutoTable && doc.lastAutoTable.finalY) || 28;
+
+      doc.setFontSize(11);
+      doc.text("Total Assets: ₹" + totals.assets.toFixed(2), 14, finalY + 10);
+      doc.text("Total Liabilities: ₹" + totals.liabilities.toFixed(2), 14, finalY + 16);
+      doc.text("Total Equity: ₹" + totals.equity.toFixed(2), 14, finalY + 22);
+      var diff = totals.assets - (totals.liabilities + totals.equity);
+      doc.text(
+        "Difference (Assets - Liabilities - Equity): ₹" + diff.toFixed(2),
+        14,
+        finalY + 28
+      );
+
+      doc.save("balance-sheet.pdf");
+      updateFooterStatus("Exported as PDF.");
+    }
+
+    function downloadHtml() {
+      var data = getTableData();
+      var html = "<!DOCTYPE html><html><head><meta charset='utf-8'><title>Balance Sheet Export</title>";
+      html += "<style>table{border-collapse:collapse;width:100%;}th,td{border:1px solid #888;padding:4px;text-align:left;}</style>";
+      html += "</head><body><h2>Balance Sheet (₹)</h2><table><thead><tr>";
+      var headers = ["#", "Item / Account", "Category", "Amount (₹)"];
+      for (var i = 0; i < headers.length; i++) {
+        html += "<th>" + headers[i] + "</th>";
+      }
+      html += "</tr></thead><tbody>";
+      for (var r = 0; r < data.length; r++) {
+        var row = data[r];
+        html += "<tr>";
+        html += "<td>" + row["#"] + "</td>";
+        html += "<td>" + (row["Item / Account"] || "") + "</td>";
+        html += "<td>" + (row["Category"] || "") + "</td>";
+        html += "<td>₹" + row["Amount (₹)"].toFixed(2) + "</td>";
+        html += "</tr>";
+      }
+      html += "</tbody></table></body></html>";
+      var blob = new Blob([html], { type: "text/html;charset=utf-8;" });
+      var url = URL.createObjectURL(blob);
+      var link = document.createElement("a");
+      link.href = url;
+      link.download = "balance-sheet.html";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      updateFooterStatus("Exported as HTML.");
+    }
+
+    function downloadJson() {
+      var data = getTableData();
+      var json = JSON.stringify(data, null, 2);
+      var blob = new Blob([json], { type: "application/json;charset=utf-8;" });
+      var url = URL.createObjectURL(blob);
+      var link = document.createElement("a");
+      link.href = url;
+      link.download = "balance-sheet.json";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      updateFooterStatus("Exported as JSON.");
+    }
+
+    function resetSheet() {
+      if (!confirm("Clear all rows and reset the sheet?")) return;
+      var tbody = document.getElementById("sheetBody");
+      tbody.innerHTML = "";
+      // default rows with blank amounts
+      createRow("Cash in Hand", "Asset", "");
+      createRow("Bank Balance", "Asset", "");
+      createRow("Furniture", "Asset", "");
+      createRow("Loan from Bank", "Liability", "");
+      createRow("Capital", "Equity", "");
+      calculateTotals();
+      document.getElementById("formulaDisplay").textContent =
+        "Click any cell to see / edit details";
+      updateFooterStatus("Sheet reset.");
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+      // load categories first
+      loadCategoriesFromStorage();
+
+      var loaded = loadFromStorage();
+      if (!loaded) {
+        // default rows with blank amount
+        createRow("Cash in Hand", "Asset", "");
+        createRow("Bank Balance", "Asset", "");
+        createRow("Furniture", "Asset", "");
+        createRow("Loan from Bank", "Liability", "");
+        createRow("Capital", "Equity", "");
+        calculateTotals();
+      }
+
+      // categories UI
+      var addCatBtn = document.getElementById("addCategoryBtn");
+      var newCatInput = document.getElementById("newCategoryInput");
+
+      if (addCatBtn) {
+        addCatBtn.addEventListener("click", function () {
+          if (!newCatInput) return;
+          var name = newCatInput.value.trim();
+          if (!name) return;
+          if (categories.indexOf(name) === -1) {
+            categories.push(name);
+            saveCategoriesToStorage();
+            refreshCategorySelectOptions();
+          }
+          newCatInput.value = "";
+        });
+      }
+
+      if (newCatInput) {
+        newCatInput.addEventListener("keydown", function (e) {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            addCatBtn && addCatBtn.click();
+          }
+        });
+      }
+
+      document.getElementById("addRowBtn").addEventListener("click", function () {
+        createRow();
+        calculateTotals();
+        updateFooterStatus("Row added.");
+      });
+
+      document.getElementById("addRowBtn2").addEventListener("click", function () {
+        createRow();
+        calculateTotals();
+        updateFooterStatus("Row added.");
+      });
+
+      document.getElementById("recalcBtn").addEventListener("click", calculateTotals);
+      document.getElementById("downloadExcelBtn").addEventListener("click", downloadExcel);
+      document.getElementById("downloadCsvBtn").addEventListener("click", downloadCsv);
+      document.getElementById("downloadPdfBtn").addEventListener("click", downloadPdf);
+      document.getElementById("downloadHtmlBtn").addEventListener("click", downloadHtml);
+      document.getElementById("downloadJsonBtn").addEventListener("click", downloadJson);
+      document.getElementById("resetSheetBtn").addEventListener("click", resetSheet);
+    });
+  </script>
+</body>
+  </html>
